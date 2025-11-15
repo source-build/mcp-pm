@@ -2,10 +2,15 @@ package logic
 
 import (
 	"context"
+	"crypto/md5"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"time"
 
+	"github.com/google/uuid"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
+	"github.com/source-build/mcp-pm/internal/config"
 	"github.com/source-build/mcp-pm/internal/es"
 	"github.com/source-build/mcp-pm/internal/types"
 	"github.com/source-build/mcp-pm/internal/utils"
@@ -91,8 +96,14 @@ func CreateAPIDocument(_ context.Context, req *mcp.CallToolRequest, input struct
 			}{Success: false, Message: "文档名称不能为空"}, fmt.Errorf("文档名称不能为空")
 	}
 
+	m := md5.New()
+	m.Write([]byte(uuid.NewString()))
+
+	now := time.Now()
+
 	// 创建API文档对象
 	document := &types.Document{
+		ID:          hex.EncodeToString(m.Sum(nil)),
 		ProjectID:   projectId,
 		CreatorID:   userId,
 		Type:        types.DocumentTypeAPI,
@@ -108,9 +119,11 @@ func CreateAPIDocument(_ context.Context, req *mcp.CallToolRequest, input struct
 			ResponseBizCode: input.ResponseBizCode,
 			Body:            input.Body,
 		},
+		CreatedAt: &now,
+		UpdatedAt: &now,
 	}
 	// 保存文档
-	document.ID, err = es.ESClient.SaveDocument(document)
+	_, err = es.ESClient.SaveDocument(document)
 	if err != nil {
 		return &mcp.CallToolResult{
 				Content: []mcp.Content{
@@ -146,6 +159,106 @@ func CreateAPIDocument(_ context.Context, req *mcp.CallToolRequest, input struct
 			Document *types.Document `json:"document"`
 			Message  string          `json:"message"`
 		}{Success: true, Document: document, Message: "API文档创建成功"}, nil
+}
+
+// EditAPIDocument 编辑API文档
+func EditAPIDocument(_ context.Context, req *mcp.CallToolRequest, input struct {
+	ID              string                 `json:"id" jsonschema:"API文档ID"`
+	Name            string                 `json:"name" jsonschema:"文档名称，必填。可使用中文或英文，比如 userLogin、用户登录接口、用户微信登录接口等"`
+	Description     string                 `json:"description" jsonschema:"文档详细描述，必填。清晰说明API的功能、业务场景和使用方法"`
+	Method          string                 `json:"method" jsonschema:"HTTP方法，必填。标准HTTP方法之一：GET、POST、PUT、DELETE、PATCH、HEAD、OPTIONS、TRACE等"`
+	Path            string                 `json:"path" jsonschema:"API相对路径，必填。支持路径参数"`
+	Header          map[string]interface{} `json:"header" jsonschema:"API请求头，可选。键值对格式，通常不需要传递该字段，除非用户要求"`
+	Body            map[string]interface{} `json:"body" jsonschema:"存在body参数时传入"`
+	Query           map[string]interface{} `json:"query" jsonschema:"存在query参数时传入"`
+	PathParams      map[string]interface{} `json:"path_params" jsonschema:"存在path参数时传入"`
+	ResponseBizCode string                 `json:"response_biz_code" jsonschema:"response 业务码，存在时传入，通常不需要传递该字段，除非用户要求"`
+	Tags            []string               `json:"tags" jsonschema:"文档标签，可选。用于分类和搜索，用于方便用户快速定位和筛选文档，需要总结出用户接口的特点并提取关键字"`
+}) (*mcp.CallToolResult, struct {
+	Success bool   `json:"success"`
+	Message string `json:"message"`
+}, error) {
+	doc := map[string]interface{}{
+		"api_content": types.APIDocumentContent{
+			Method:          input.Method,
+			Path:            input.Path,
+			Header:          input.Header,
+			Query:           input.Query,
+			PathParams:      input.PathParams,
+			ResponseBizCode: input.ResponseBizCode,
+			Body:            input.Body,
+		},
+		"updated_at": time.Now(),
+	}
+	if input.Name != "" {
+		doc["name"] = input.Name
+	}
+	if input.Description != "" {
+		doc["description"] = input.Description
+	}
+	if input.Tags != nil {
+		doc["tags"] = input.Tags
+	}
+
+	// 保存文档
+	err := es.ESClient.EditDocument(input.ID, doc)
+	if err != nil {
+		return &mcp.CallToolResult{
+				Content: []mcp.Content{
+					&mcp.TextContent{Text: fmt.Sprintf("保存API文档失败: %v", err)},
+				},
+				IsError: true,
+			}, struct {
+				Success bool   `json:"success"`
+				Message string `json:"message"`
+			}{Success: false, Message: fmt.Sprintf("保存失败: %v", err)}, err
+	}
+
+	// 构建成功响应
+	resultText := fmt.Sprintf("API文档编辑成功")
+
+	return &mcp.CallToolResult{
+			Content: []mcp.Content{
+				&mcp.TextContent{Text: resultText},
+			},
+		}, struct {
+			Success bool   `json:"success"`
+			Message string `json:"message"`
+		}{Success: true, Message: "API文档编辑成功"}, nil
+}
+
+// DelAPIDocument 删除API文档
+func DelAPIDocument(_ context.Context, req *mcp.CallToolRequest, input struct {
+	ID string `json:"id" jsonschema:"API文档ID"`
+}) (*mcp.CallToolResult, struct {
+	Success bool   `json:"success"`
+	Message string `json:"message"`
+}, error) {
+	_, err := es.ESClient.Client().Delete().
+		Index(config.Config.DocumentIndex).
+		Id(input.ID).
+		Refresh("true").
+		Do(context.Background())
+	if err != nil {
+		return &mcp.CallToolResult{
+				Content: []mcp.Content{
+					&mcp.TextContent{Text: fmt.Sprintf("删除API文档失败: %v", err)},
+				},
+				IsError: true,
+			}, struct {
+				Success bool   `json:"success"`
+				Message string `json:"message"`
+			}{Success: false, Message: fmt.Sprintf("删除失败: %v", err)}, err
+	}
+
+	return &mcp.CallToolResult{
+			Content: []mcp.Content{
+				&mcp.TextContent{Text: fmt.Sprintf("API文档删除成功，ID: %s", input.ID)},
+			},
+		}, struct {
+			Success bool   `json:"success"`
+			Message string `json:"message"`
+		}{Success: true, Message: "API文档删除成功"}, nil
 }
 
 // GetAPIDocument 获取API文档

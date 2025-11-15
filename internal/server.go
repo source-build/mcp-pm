@@ -50,6 +50,14 @@ func createMCPServer() *mcp.Server {
 		Name:        "create_api_document",
 		Description: "创建API文档。用于创建和管理各种API接口文档，支持REST类型。",
 	}, logic.CreateAPIDocument)
+	mcp.AddTool(server, &mcp.Tool{
+		Name:        "edit_api_document",
+		Description: "编辑API文档。根据文档ID编辑指定的API文档内容。",
+	}, logic.EditAPIDocument)
+	mcp.AddTool(server, &mcp.Tool{
+		Name:        "del_api_document",
+		Description: "删除API文档。根据文档ID删除指定的API文档。",
+	}, logic.DelAPIDocument)
 
 	mcp.AddTool(server, &mcp.Tool{
 		Name:        "get_api_document",

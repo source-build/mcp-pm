@@ -240,6 +240,22 @@ func (c *Client) SaveDocument(document *types.Document) (id string, err error) {
 	return resp.Id, nil
 }
 
+// EditDocument 编辑文档
+func (c *Client) EditDocument(id string, doc map[string]interface{}) error {
+	_, err := c.client.
+		Update().
+		Index(config.Config.DocumentIndex).
+		Id(id).
+		Doc(doc).
+		Refresh("true").
+		Do(c.ctx)
+	if err != nil {
+		return fmt.Errorf("编辑文档失败: %v", err)
+	}
+
+	return nil
+}
+
 // GetDocument 获取文档
 func (c *Client) GetDocument(id string) (*types.Document, error) {
 	get, err := c.client.Get().
@@ -281,7 +297,7 @@ func (c *Client) SearchDocuments(projectID string, req *types.SearchRequest) (*t
 
 	// 关键词搜索
 	if req.Query != "" {
-		boolQuery.Must(elastic.NewMultiMatchQuery(req.Query, "name", "description"))
+		boolQuery.Must(elastic.NewMultiMatchQuery(req.Query, "name"))
 	}
 
 	// 设置默认值
@@ -305,6 +321,7 @@ func (c *Client) SearchDocuments(projectID string, req *types.SearchRequest) (*t
 	if err != nil {
 		return nil, fmt.Errorf("搜索文档失败: %v", err)
 	}
+
 	var documents []types.Document
 	for _, hit := range searchResult.Hits.Hits {
 		var document types.Document
@@ -382,6 +399,11 @@ func (c *Client) ListDocuments(projectID string, docType *types.DocumentType, li
 		Offset:    offset,
 		Limit:     limit,
 	}, nil
+}
+
+// Client 客户端
+func (c *Client) Client() *elastic.Client {
+	return c.client
 }
 
 // Close 关闭客户端
