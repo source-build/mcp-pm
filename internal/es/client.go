@@ -215,6 +215,7 @@ func (c *Client) SaveDocument(document *types.Document) (id string, err error) {
 	}
 
 	doc := DocumentES{
+		ID:          document.ID,
 		ProjectID:   document.ProjectID,
 		CreatorID:   document.CreatorID,
 		Type:        string(document.Type),
