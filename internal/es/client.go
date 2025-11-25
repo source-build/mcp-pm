@@ -402,6 +402,57 @@ func (c *Client) ListDocuments(projectID string, docType *types.DocumentType, li
 	}, nil
 }
 
+// CheckUserInProject 检查用户是否存在项目中
+func (c *Client) CheckUserInProject(projectID, userID string) (bool, error) {
+	// 首先获取项目信息
+	get, err := c.client.Get().Index(config.Config.ProjectIndex).Id(projectID).Do(c.ctx)
+	if err != nil {
+		if elastic.IsNotFound(err) {
+			return false, fmt.Errorf("项目不存在: %s", projectID)
+		}
+		return false, fmt.Errorf("获取项目失败: %v", err)
+	}
+
+	// 解析项目数据
+	var project ProjectES
+	if err = json.Unmarshal(get.Source, &project); err != nil {
+		return false, fmt.Errorf("反序列化项目失败: %v", err)
+	}
+
+	// 检查用户ID是否在项目的user_ids数组中
+	for _, uid := range project.UserIds {
+		if uid == userID {
+			return true, nil
+		}
+	}
+
+	return false, nil
+}
+
+// GetDocumentProjectID 根据文档id查询所在项目id
+func (c *Client) GetDocumentProjectID(docID string) (string, error) {
+	searchResult, err := c.client.Search().
+		Index(config.Config.DocumentIndex).
+		Query(elastic.NewTermQuery("id", docID)).
+		Size(1).
+		Do(c.ctx)
+	if err != nil {
+		return "", fmt.Errorf("查询文档项目ID失败: %v", err)
+	}
+
+	if len(searchResult.Hits.Hits) == 0 {
+		return "", fmt.Errorf("文档不存在: %s", docID)
+	}
+
+	// 解析项目ID
+	var document types.Document
+	if err = json.Unmarshal(searchResult.Hits.Hits[0].Source, &document); err != nil {
+		return "", fmt.Errorf("反序列化文档失败: %v", err)
+	}
+
+	return document.ProjectID, nil
+}
+
 // Client 客户端
 func (c *Client) Client() *elastic.Client {
 	return c.client

@@ -95,7 +95,6 @@ func ListProjects(_ context.Context, req *mcp.CallToolRequest, input struct{}) (
 
 	resultText += "---\n\n"
 	resultText += "**使用说明：**\n"
-	resultText += "1. 使用 `switch_project` 工具切换到特定项目\n"
 	resultText += "2. 使用 `get_project_info` 获取项目详细信息\n"
 	resultText += "3. 切换项目后，所有文档操作将在当前项目上下文中进行"
 
@@ -113,7 +112,7 @@ func ListProjects(_ context.Context, req *mcp.CallToolRequest, input struct{}) (
 
 // GetProjectInfo 获取项目信息处理器
 func GetProjectInfo(_ context.Context, req *mcp.CallToolRequest, input struct {
-	ProjectID string `json:"project_id,omitempty" jsonschema:"项目ID，选填，如果不提供则使用Token中的项目（默认项目）,当用户说查询当前项目时可不传"`
+	ProjectID string `json:"project_id,omitempty" jsonschema:"项目ID，可选。要查询的项目标识符，如果不提供则使用Token中的当前项目。当用户说'查询当前项目'、'查看项目信息'时可不传，系统会自动使用当前项目。传参时必须是有效的项目ID。"`
 }) (*mcp.CallToolResult, struct {
 	Success bool           `json:"success"`
 	Project *types.Project `json:"project"`
@@ -208,7 +207,6 @@ func GetProjectInfo(_ context.Context, req *mcp.CallToolRequest, input struct {
 
 	resultText += "\n\n---\n\n"
 	resultText += "**项目操作提示：**\n"
-	resultText += "- 使用 `switch_project` 切换到其他项目\n"
 	resultText += "- 使用 `list_api_documents` 查看API文档\n"
 	resultText += "- 使用 `list_text_documents` 查看文本文档"
 

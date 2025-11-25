@@ -33,67 +33,19 @@ import (
 */
 
 // CreateTextDocument 创建文本文档
-//
-// 🎯 **AI使用指南**
-// 这个工具专门用于创建和管理各种类型的文本文档。AI可以通过以下方式使用：
-//
-// 1. **创建README文档**：
-//   - contentType: "readme"
-//   - content: 使用Markdown格式的项目说明文档
-//   - 适用于：项目说明、使用指南、安装说明等
-//
-// 2. **创建配置文档**：
-//   - contentType: "config"
-//   - content: JSON、YAML、TOML等配置文件内容
-//   - 适用于：应用配置、环境配置、服务配置等
-//
-// 3. **创建提示词模板**：
-//   - contentType: "prompt"
-//   - content: 包含变量占位符的提示词，如"请分析以下代码：{{.code}}"
-//   - 适用于：代码审查模板、分析模板、生成模板等
-//
-// 4. **创建技术规范**：
-//   - contentType: "spec"
-//   - content: 结构化的技术规范文档
-//   - 适用于：接口规范、数据结构定义、编码规范等
-//
-// 5. **创建普通笔记**：
-//   - contentType: "note"
-//   - content: 纯文本内容，可包含简单的Markdown格式
-//   - 适用于：会议记录、技术笔记、待办事项等
-//
-// ⚠️ **AI调用注意事项**
-// - **必需参数**: name, description, content_type, content必须提供
-// - **命名规范**: 建议使用"用途-类型"格式，如"project-readme"或"server-config"
-// - **内容格式**: 根据contentType选择合适的内容格式
-// - **变量占位符**: 在prompt类型中，使用{{.variable}}格式
-// - **标签分类**: 使用标签进行分类管理，如['docs', 'config', 'template']
-//
-// 🔍 **搜索和发现**: AI可以通过以下方式找到创建的文档
-// - 使用`search_text_documents`按内容、类型或标签搜索
-// - 使用`list_text_documents`按内容类型分类浏览
-// - 通过content_type参数快速筛选特定类型文档
-//
-// 📋 **最佳实践**
-// - 为README文档添加清晰的结构和目录
-// - 配置文档包含注释说明每个配置项
-// - 提示词模板使用有意义的变量名
-// - 技术规范遵循标准格式和术语
-//
-// 🛡️ **参数详细说明**
-func CreateTextDocument(ctx context.Context, req *mcp.CallToolRequest, input struct {
-	Name        string            `json:"name" jsonschema:"文档名称，必填。建议使用描述性名称，如'project-readme'或'server-config'"`
-	Description string            `json:"description" jsonschema:"文档详细描述，必填。清晰说明文档的用途、内容和适用场景，帮助AI理解这个文档的作用"`
-	ContentType string            `json:"content_type" jsonschema:"内容类型，必填。支持的类型：'readme'(README文档), 'prompt'(提示词模板), 'config'(配置文件), 'note'(普通笔记), 'spec'(技术规范)"`
-	Variables   map[string]string `json:"variables" jsonschema:"模板变量，用于提示词模板，可选"`
-	Content     interface{}       `json:"content" jsonschema:"文档内容，必填。可以是字符串、JSON对象或任意可转换为字符串的内容。根据content_type自动格式化存储"`
-	Tags        []string          `json:"tags,omitempty" jsonschema:"文档标签，可选。用于分类和搜索，建议使用如：['readme', 'config', 'guide', 'template', 'docs']等标签"`
+func CreateTextDocument(_ context.Context, req *mcp.CallToolRequest, input struct {
+	ProjectID   string            `json:"project_id" jsonschema:"项目ID，必填。要创建文本文档的项目ID。必须是有效的项目标识符，用户需要有该项目的访问权限。通常用于项目文档的集中管理和知识库维护。"`
+	Name        string            `json:"name" jsonschema:"文档名称，必填。文本文档的显示名称，用于搜索和识别。建议使用描述性名称，如：'project-readme'、'server-config'、'api-guide'等。支持中英文，长度2-100字符。"`
+	Description string            `json:"description" jsonschema:"文档描述，必填。详细说明文本文档的用途、内容和适用场景，帮助AI和团队成员理解文档的价值。建议包括：文档目的、使用方法、维护说明、更新频率等。"`
+	ContentType string            `json:"content_type" jsonschema:"内容类型，必填。文本文档的具体类型，支持的值：'readme'(README文档)、'prompt'(提示词模板)、'config'(配置文件)、'note'(普通笔记)、'spec'(技术规范)。必须为有效枚举值。"`
+	Variables   map[string]string `json:"variables" jsonschema:"模板变量，可选。用于提示词模板的变量键值对，如：{'username': '用户名', 'api_key': 'API密钥'}。仅在content_type为'prompt'时有效，用于模板参数替换。"`
+	Content     interface{}       `json:"content" jsonschema:"文档内容，必填。文本文档的实际内容，可以是字符串、JSON对象或任意可转换为字符串的内容。根据content_type自动格式化存储。如：README文档使用Markdown格式，配置文件使用JSON格式，提示词模板使用纯文本。"`
+	Tags        []string          `json:"tags,omitempty" jsonschema:"文档标签，可选。用于分类和搜索文本文档。建议使用：['readme', 'config', 'guide', 'template', 'docs']等有意义的标签。支持多个标签，便于文档管理和团队协作。"`
 }) (*mcp.CallToolResult, struct {
 	Success  bool            `json:"success"`
 	Document *types.Document `json:"document"`
 	Message  string          `json:"message"`
 }, error) {
-	// 获取用户ID和项目ID
 	userId, err := utils.ExtractUserID(req)
 	if err != nil {
 		return &mcp.CallToolResult{
@@ -108,21 +60,23 @@ func CreateTextDocument(ctx context.Context, req *mcp.CallToolRequest, input str
 			}{Success: false, Message: fmt.Sprintf("获取用户ID失败: %v", err)}, err
 	}
 
-	projectId, err := utils.ExtractProjectID(req)
+	is, err := es.ESClient.CheckUserInProject(input.ProjectID, userId)
 	if err != nil {
-		return &mcp.CallToolResult{
-				Content: []mcp.Content{
-					&mcp.TextContent{Text: fmt.Sprintf("获取项目ID失败: %v", err)},
-				},
-				IsError: true,
-			}, struct {
-				Success  bool            `json:"success"`
-				Document *types.Document `json:"document"`
-				Message  string          `json:"message"`
-			}{Success: false, Message: fmt.Sprintf("获取项目ID失败: %v", err)}, err
+		return nil, struct {
+			Success  bool            `json:"success"`
+			Document *types.Document `json:"document"`
+			Message  string          `json:"message"`
+		}{Success: false, Message: fmt.Sprintf("系统错误: %v", err)}, err
+	}
+	if !is {
+		return nil, struct {
+			Success  bool            `json:"success"`
+			Document *types.Document `json:"document"`
+			Message  string          `json:"message"`
+		}{Success: false, Message: fmt.Sprintf("用户不在项目中: %v", err)}, err
 	}
 
-	fmt.Printf("🔐 用户 %s 正在项目 %s 中创建文本文档: %s\n", userId, projectId, input.Name)
+	fmt.Printf("🔐 用户 %s 正在项目 %s 中创建文本文档: %s\n", userId, input.ProjectID, input.Name)
 
 	// 验证必需参数
 	if input.Name == "" {
@@ -140,7 +94,7 @@ func CreateTextDocument(ctx context.Context, req *mcp.CallToolRequest, input str
 
 	// 创建文本文档对象
 	document := &types.Document{
-		ProjectID:   projectId,
+		ProjectID:   input.ProjectID,
 		Type:        types.DocumentTypeText,
 		Name:        input.Name,
 		Description: input.Description,
@@ -199,20 +153,47 @@ func CreateTextDocument(ctx context.Context, req *mcp.CallToolRequest, input str
 }
 
 // GetTextDocument 获取文本文档
-//
-// 根据文档ID获取详细的文本文档信息，包含完整内容结构。
-// 主要用于：
-// - 查看文档完整内容
-// - 获取特定格式的内容
-// - 复制文档用于其他工具
-//
-// 注意事项：
-//   - 需要提供确切的文档ID
-//   - 返回的JSON格式保持原始结构
-//   - 只能访问当前用户有权限的项目文档
-func GetTextDocument(ctx context.Context, req *mcp.CallToolRequest, input struct {
-	ID string `json:"id" jsonschema:"文本文档ID"`
+func GetTextDocument(_ context.Context, req *mcp.CallToolRequest, input struct {
+	ID string `json:"id" jsonschema:"文档ID，必填。要获取的文本文档的唯一标识符。必须是已存在的文档ID，可通过搜索或列表功能获取。返回完整的文档结构和内容。"`
 }) (*mcp.CallToolResult, *types.Document, error) {
+	userId, err := utils.ExtractUserID(req)
+	if err != nil {
+		return &mcp.CallToolResult{
+			Content: []mcp.Content{
+				&mcp.TextContent{Text: fmt.Sprintf("获取用户ID失败: %v", err)},
+			},
+			IsError: true,
+		}, nil, err
+	}
+
+	projectID, err := es.ESClient.GetDocumentProjectID(input.ID)
+	if err != nil {
+		return &mcp.CallToolResult{
+			Content: []mcp.Content{
+				&mcp.TextContent{Text: fmt.Sprintf("获取文档项目ID失败: %v", err)},
+			},
+			IsError: true,
+		}, nil, err
+	}
+
+	is, err := es.ESClient.CheckUserInProject(projectID, userId)
+	if err != nil {
+		return &mcp.CallToolResult{
+			Content: []mcp.Content{
+				&mcp.TextContent{Text: fmt.Sprintf("检查用户在项目中失败: %v", err)},
+			},
+			IsError: true,
+		}, nil, err
+	}
+	if !is {
+		return &mcp.CallToolResult{
+			Content: []mcp.Content{
+				&mcp.TextContent{Text: fmt.Sprintf("用户不在项目中: %v", userId)},
+			},
+			IsError: true,
+		}, nil, err
+	}
+
 	// 获取文档
 	document, err := es.ESClient.GetDocument(input.ID)
 	if err != nil {
@@ -262,39 +243,24 @@ func GetTextDocument(ctx context.Context, req *mcp.CallToolRequest, input struct
 }
 
 // SearchTextDocuments 搜索文本文档
-//
-// 在当前项目的所有文本文档中搜索，支持多种筛选条件：
-// - 关键词搜索：在文档名称、描述、内容等中搜索
-// - 内容类型筛选：只返回指定内容类型的文档
-// - 标签筛选：根据标签分类搜索特定类型的文档
-//
-// 搜索逻辑：
-//   - 支持模糊匹配和精确匹配
-//   - 搜索范围包括：文档名称、描述、文档内容
-//   - 支持组合搜索条件
-//
-// 使用技巧：
-//   - 搜索配置相关文档：关键词使用"config"
-//   - 查找特定类型：contentType参数设为"readme"
-//   - 按标签筛选：tags参数设为["setup", "guide"]
-//   - 搜索文档内容：可使用文档中的任意关键词
-func SearchTextDocuments(ctx context.Context, req *mcp.CallToolRequest, input struct {
-	Query       string   `json:"query" jsonschema:"搜索关键词"`
-	ContentType string   `json:"content_type,omitempty" jsonschema:"内容类型筛选"`
-	Tags        []string `json:"tags,omitempty" jsonschema:"标签筛选"`
-	Limit       int      `json:"limit,omitempty" jsonschema:"返回数量限制，默认20"`
-	Offset      int      `json:"offset,omitempty" jsonschema:"偏移量，默认0"`
+func SearchTextDocuments(_ context.Context, req *mcp.CallToolRequest, input struct {
+	ProjectID   string   `json:"project_id" jsonschema:"项目ID，必填。要在其中搜索文本文档的项目ID。必须是有效的项目标识符，用户需要有该项目的访问权限。用于项目文档的集中搜索和知识库检索。"`
+	Query       string   `json:"query" jsonschema:"搜索关键词，必填。用于搜索文本文档的关键词，可以是文档名称、描述或内容中的任意词汇。如：'readme'、'config'、'guide'、'tutorial'。支持模糊搜索和内容全文检索。"`
+	ContentType string   `json:"content_type,omitempty" jsonschema:"内容类型筛选，可选。按内容类型过滤结果，支持的值：'readme'、'prompt'、'config'、'note'、'spec'。不传则返回所有类型的文档。"`
+	Tags        []string `json:"tags,omitempty" jsonschema:"标签筛选，可选。按标签过滤文档，如：['guide', 'tutorial', 'docs']。支持多个标签组合筛选。不传则忽略标签过滤。"`
+	Limit       int      `json:"limit,omitempty" jsonschema:"返回数量限制，可选。控制返回结果数量，默认20，最大100。用于分页浏览和性能优化。"`
+	Offset      int      `json:"offset,omitempty" jsonschema:"偏移量，可选。分页查询的起始位置，默认0。用于跳过前面的结果，获取后续数据。支持大量文档的分页浏览。"`
 }) (*mcp.CallToolResult, struct {
 	Success   bool             `json:"success"`
 	Documents []types.Document `json:"documents"`
 	Count     int              `json:"count"`
 	Message   string           `json:"message"`
 }, error) {
-	projectId, err := utils.ExtractProjectID(req)
+	userId, err := utils.ExtractUserID(req)
 	if err != nil {
 		return &mcp.CallToolResult{
 				Content: []mcp.Content{
-					&mcp.TextContent{Text: fmt.Sprintf("获取项目ID失败: %v", err)},
+					&mcp.TextContent{Text: fmt.Sprintf("搜索API文档失败: %v", err)},
 				},
 				IsError: true,
 			}, struct {
@@ -302,7 +268,25 @@ func SearchTextDocuments(ctx context.Context, req *mcp.CallToolRequest, input st
 				Documents []types.Document `json:"documents"`
 				Count     int              `json:"count"`
 				Message   string           `json:"message"`
-			}{Success: false, Count: 0, Message: fmt.Sprintf("获取项目ID失败: %v", err)}, err
+			}{Success: false, Count: 0, Message: fmt.Sprintf("搜索API文档失败: %v", err)}, err
+	}
+
+	is, err := es.ESClient.CheckUserInProject(input.ProjectID, userId)
+	if err != nil {
+		return nil, struct {
+			Success   bool             `json:"success"`
+			Documents []types.Document `json:"documents"`
+			Count     int              `json:"count"`
+			Message   string           `json:"message"`
+		}{Success: false, Count: 0, Message: fmt.Sprintf("检查用户在项目中失败: %v", err)}, err
+	}
+	if !is {
+		return nil, struct {
+			Success   bool             `json:"success"`
+			Documents []types.Document `json:"documents"`
+			Count     int              `json:"count"`
+			Message   string           `json:"message"`
+		}{Success: false, Count: 0, Message: fmt.Sprintf("用户不在项目中: %v", userId)}, err
 	}
 
 	// 构建搜索请求
@@ -316,7 +300,7 @@ func SearchTextDocuments(ctx context.Context, req *mcp.CallToolRequest, input st
 	}
 
 	// 执行搜索
-	result, err := es.ESClient.SearchDocuments(projectId, searchReq)
+	result, err := es.ESClient.SearchDocuments(input.ProjectID, searchReq)
 	if err != nil {
 		return &mcp.CallToolResult{
 				Content: []mcp.Content{
@@ -379,38 +363,22 @@ func SearchTextDocuments(ctx context.Context, req *mcp.CallToolRequest, input st
 }
 
 // ListTextDocuments 列出文本文档
-//
-// 列出当前项目的所有文本文档，支持按内容类型分类筛选。
-// 用于：
-// - 查看项目中的所有文档
-// - 按文档类型分类浏览
-// - 快速定位特定类型的文档
-//
-// 分类说明：
-//   - 不指定类型：列出所有文本文档
-//   - 指定类型（如readme）：只返回该类型的文档
-//   - 支持的类型：readme, prompt, config, note, spec等
-//
-// 注意事项：
-//   - 返回按更新时间倒序排列
-//   - 支持分页浏览大量文档
-//   - 只列出用户有权限访问的项目文档
-func ListTextDocuments(ctx context.Context, req *mcp.CallToolRequest, input struct {
-	ContentType string `json:"content_type,omitempty" jsonschema:"内容类型筛选"`
-	Limit       int    `json:"limit,omitempty" jsonschema:"返回数量限制，默认20"`
-	Offset      int    `json:"offset,omitempty" jsonschema:"偏移量，默认0"`
+func ListTextDocuments(_ context.Context, req *mcp.CallToolRequest, input struct {
+	ProjectID   string `json:"project_id,omitempty" jsonschema:"项目ID，必填。要列出文本文档的项目ID。必须是有效的项目标识符，用户需要有该项目的访问权限。用于项目文档的集中浏览和知识库管理。"`
+	ContentType string `json:"content_type,omitempty" jsonschema:"内容类型筛选，可选。按内容类型过滤结果，支持的值：'readme'、'prompt'、'config'、'note'、'spec'。不传则返回所有类型的文档。用于快速定位特定类型的文档。"`
+	Limit       int    `json:"limit,omitempty" jsonschema:"返回数量限制，可选。控制返回结果数量，默认20，最大100。用于分页浏览和性能优化，避免一次性返回过多数据。"`
+	Offset      int    `json:"offset,omitempty" jsonschema:"偏移量，可选。分页查询的起始位置，默认0。用于跳过前面的结果，获取后续数据。支持大量文档的分页浏览。"`
 }) (*mcp.CallToolResult, struct {
 	Success   bool             `json:"success"`
 	Documents []types.Document `json:"documents"`
 	Count     int              `json:"count"`
 	Message   string           `json:"message"`
 }, error) {
-	// 获取用户ID和项目ID
 	userId, err := utils.ExtractUserID(req)
 	if err != nil {
 		return &mcp.CallToolResult{
 				Content: []mcp.Content{
-					&mcp.TextContent{Text: fmt.Sprintf("获取用户ID失败: %v", err)},
+					&mcp.TextContent{Text: fmt.Sprintf("搜索API文档失败: %v", err)},
 				},
 				IsError: true,
 			}, struct {
@@ -418,25 +386,28 @@ func ListTextDocuments(ctx context.Context, req *mcp.CallToolRequest, input stru
 				Documents []types.Document `json:"documents"`
 				Count     int              `json:"count"`
 				Message   string           `json:"message"`
-			}{Success: false, Count: 0, Message: fmt.Sprintf("获取用户ID失败: %v", err)}, err
+			}{Success: false, Count: 0, Message: fmt.Sprintf("搜索API文档失败: %v", err)}, err
 	}
 
-	projectId, err := utils.ExtractProjectID(req)
+	is, err := es.ESClient.CheckUserInProject(input.ProjectID, userId)
 	if err != nil {
-		return &mcp.CallToolResult{
-				Content: []mcp.Content{
-					&mcp.TextContent{Text: fmt.Sprintf("获取项目ID失败: %v", err)},
-				},
-				IsError: true,
-			}, struct {
-				Success   bool             `json:"success"`
-				Documents []types.Document `json:"documents"`
-				Count     int              `json:"count"`
-				Message   string           `json:"message"`
-			}{Success: false, Count: 0, Message: fmt.Sprintf("获取项目ID失败: %v", err)}, err
+		return nil, struct {
+			Success   bool             `json:"success"`
+			Documents []types.Document `json:"documents"`
+			Count     int              `json:"count"`
+			Message   string           `json:"message"`
+		}{Success: false, Count: 0, Message: fmt.Sprintf("检查用户在项目中失败: %v", err)}, err
+	}
+	if !is {
+		return nil, struct {
+			Success   bool             `json:"success"`
+			Documents []types.Document `json:"documents"`
+			Count     int              `json:"count"`
+			Message   string           `json:"message"`
+		}{Success: false, Count: 0, Message: fmt.Sprintf("用户不在项目中: %v", userId)}, err
 	}
 
-	fmt.Printf("🔐 用户 %s 正在项目 %s 中列出文本文档\n", userId, projectId)
+	fmt.Printf("🔐 用户 %s 正在项目 %s 中列出文本文档\n", userId, input.ProjectID)
 
 	// 设置默认值
 	limit := input.Limit
@@ -451,7 +422,7 @@ func ListTextDocuments(ctx context.Context, req *mcp.CallToolRequest, input stru
 	// 执行列表
 	textType := types.DocumentTypeText
 	docType := &textType
-	result, err := es.ESClient.ListDocuments(projectId, docType, limit, offset)
+	result, err := es.ESClient.ListDocuments(input.ProjectID, docType, limit, offset)
 	if err != nil {
 		return &mcp.CallToolResult{
 				Content: []mcp.Content{
