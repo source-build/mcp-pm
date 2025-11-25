@@ -2,9 +2,12 @@ package logic
 
 import (
 	"context"
+	"crypto/md5"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 
+	"github.com/google/uuid"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 	"github.com/source-build/mcp-pm/internal/es"
 	"github.com/source-build/mcp-pm/internal/types"
@@ -92,8 +95,12 @@ func CreateTextDocument(_ context.Context, req *mcp.CallToolRequest, input struc
 			}{Success: false, Message: "文档名称不能为空"}, fmt.Errorf("文档名称不能为空")
 	}
 
+	m := md5.New()
+	m.Write([]byte(uuid.NewString()))
+
 	// 创建文本文档对象
 	document := &types.Document{
+		ID:          hex.EncodeToString(m.Sum(nil)),
 		ProjectID:   input.ProjectID,
 		Type:        types.DocumentTypeText,
 		Name:        input.Name,
@@ -107,7 +114,7 @@ func CreateTextDocument(_ context.Context, req *mcp.CallToolRequest, input struc
 	}
 
 	// 保存文档
-	document.ID, err = es.ESClient.SaveDocument(document)
+	_, err = es.ESClient.SaveDocument(document)
 	if err != nil {
 		return &mcp.CallToolResult{
 				Content: []mcp.Content{
