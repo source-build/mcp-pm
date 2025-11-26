@@ -38,10 +38,10 @@ import (
 // CreateTextDocument 创建文本文档
 func CreateTextDocument(_ context.Context, req *mcp.CallToolRequest, input struct {
 	ProjectID   string            `json:"project_id,omitempty" jsonschema:"项目ID，可选。要列出文本文档的项目ID。必须是有效的项目标识符，不传将查询默认项目，可从"list_projects"或"get_project_info"工具中获取。"`
-	Name        string            `json:"name" jsonschema:"文档名称，必填。文本文档的显示名称，用于搜索和识别。建议使用描述性名称，如：'project-readme'、'server-config'、'api-guide'等。支持中英文，长度2-100字符。"`
-	Description string            `json:"description" jsonschema:"文档描述，必填。详细说明文本文档的用途、内容和适用场景，帮助AI和团队成员理解文档的价值。建议包括：文档目的、使用方法、维护说明、更新频率等。"`
-	ContentType string            `json:"content_type" jsonschema:"内容类型，必填。文本文档的具体类型，支持的值：'readme'(README文档)、'prompt'(提示词模板)、'config'(配置文件)、'note'(普通笔记)、'spec'(技术规范)。必须为有效枚举值。"`
-	Variables   map[string]string `json:"variables" jsonschema:"模板变量，可选。用于提示词模板的变量键值对，如：{'username': '用户名', 'api_key': 'API密钥'}。仅在content_type为'prompt'时有效，用于模板参数替换。"`
+	Name        string            `json:"name,omitempty" jsonschema:"文档名称，必填。文本文档的显示名称，用于搜索和识别。建议使用描述性名称，如：'project-readme'、'server-config'、'api-guide'等。支持中英文，长度2-100字符。"`
+	Description string            `json:"description,omitempty" jsonschema:"文档描述，必填。详细说明文本文档的用途、内容和适用场景，帮助AI和团队成员理解文档的价值。建议包括：文档目的、使用方法、维护说明、更新频率等。"`
+	ContentType string            `json:"content_type,omitempty" jsonschema:"内容类型，必填。文本文档的具体类型，支持的值：'readme'(README文档)、'prompt'(提示词模板)、'config'(配置文件)、'note'(普通笔记)、'spec'(技术规范)。必须为有效枚举值。"`
+	Variables   map[string]string `json:"variables,omitempty" jsonschema:"模板变量，可选。用于提示词模板的变量键值对，如：{'username': '用户名', 'api_key': 'API密钥'}。仅在content_type为'prompt'时有效，用于模板参数替换。"`
 	Content     interface{}       `json:"content" jsonschema:"文档内容，必填。文本文档的实际内容，可以是字符串、JSON对象或任意可转换为字符串的内容。根据content_type自动格式化存储。如：README文档使用Markdown格式，配置文件使用JSON格式，提示词模板使用纯文本。"`
 	Tags        []string          `json:"tags,omitempty" jsonschema:"文档标签，可选。用于分类和搜索文本文档。建议使用：['readme', 'config', 'guide', 'template', 'docs']等有意义的标签。支持多个标签，便于文档管理和团队协作。"`
 }) (*mcp.CallToolResult, struct {
@@ -169,8 +169,8 @@ func CreateTextDocument(_ context.Context, req *mcp.CallToolRequest, input struc
 
 // GetTextDocument 获取文本文档
 func GetTextDocument(_ context.Context, req *mcp.CallToolRequest, input struct {
-	ID         string `json:"id" jsonschema:"文档ID，必填。要获取的文本文档的唯一标识符。必须是已存在的文档ID，可通过搜索或列表功能获取。返回完整的文档结构和内容。"`
-	DocumentId string `json:"document_id" jsonschema:"文档ID。要获取的文本文档的唯一标识符。必须是已存在的文档ID，可通过搜索或列表功能获取。返回完整的文档结构和内容。"`
+	ID         string `json:"id,omitempty" jsonschema:"文档ID，必填。要获取的文本文档的唯一标识符。必须是已存在的文档ID，可通过搜索或列表功能获取。返回完整的文档结构和内容。"`
+	DocumentId string `json:"document_id,omitempty" jsonschema:"文档ID。要获取的文本文档的唯一标识符。必须是已存在的文档ID，可通过搜索或列表功能获取。返回完整的文档结构和内容。"`
 }) (*mcp.CallToolResult, *types.Document, error) {
 	id := input.ID
 	if id == "" && input.DocumentId != "" {
@@ -264,7 +264,7 @@ func GetTextDocument(_ context.Context, req *mcp.CallToolRequest, input struct {
 // SearchTextDocuments 搜索文本文档
 func SearchTextDocuments(_ context.Context, req *mcp.CallToolRequest, input struct {
 	ProjectID   string   `json:"project_id,omitempty" jsonschema:"项目ID，可选。要列出文本文档的项目ID。必须是有效的项目标识符，不传将查询默认项目，可从"list_projects"或"get_project_info"工具中获取。"`
-	Query       string   `json:"query" jsonschema:"搜索关键词，必填。用于搜索文本文档的关键词，可以是文档名称、描述或内容中的任意词汇。如：'readme'、'config'、'guide'、'tutorial'。支持模糊搜索和内容全文检索。"`
+	Query       string   `json:"query,omitempty" jsonschema:"搜索关键词，必填。用于搜索文本文档的关键词，可以是文档名称、描述或内容中的任意词汇。如：'readme'、'config'、'guide'、'tutorial'。支持模糊搜索和内容全文检索。"`
 	ContentType string   `json:"content_type,omitempty" jsonschema:"内容类型筛选，可选。按内容类型过滤结果，支持的值：'readme'、'prompt'、'config'、'note'、'spec'。不传则返回所有类型的文档。"`
 	Tags        []string `json:"tags,omitempty" jsonschema:"标签筛选，可选。按标签过滤文档，如：['guide', 'tutorial', 'docs']。支持多个标签组合筛选。不传则忽略标签过滤。"`
 	Limit       int      `json:"limit,omitempty" jsonschema:"返回数量限制，可选。控制返回结果数量，默认20，最大100。用于分页浏览和性能优化。"`
