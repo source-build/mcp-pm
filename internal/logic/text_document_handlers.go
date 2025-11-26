@@ -169,8 +169,23 @@ func CreateTextDocument(_ context.Context, req *mcp.CallToolRequest, input struc
 
 // GetTextDocument 获取文本文档
 func GetTextDocument(_ context.Context, req *mcp.CallToolRequest, input struct {
-	ID string `json:"id" jsonschema:"文档ID，必填。要获取的文本文档的唯一标识符。必须是已存在的文档ID，可通过搜索或列表功能获取。返回完整的文档结构和内容。"`
+	ID         string `json:"id" jsonschema:"文档ID，必填。要获取的文本文档的唯一标识符。必须是已存在的文档ID，可通过搜索或列表功能获取。返回完整的文档结构和内容。"`
+	DocumentId string `json:"document_id" jsonschema:"文档ID。要获取的文本文档的唯一标识符。必须是已存在的文档ID，可通过搜索或列表功能获取。返回完整的文档结构和内容。"`
 }) (*mcp.CallToolResult, *types.Document, error) {
+	id := input.ID
+	if id == "" && input.DocumentId != "" {
+		id = input.DocumentId
+	}
+
+	if id == "" {
+		return &mcp.CallToolResult{
+			Content: []mcp.Content{
+				&mcp.TextContent{Text: "文档ID不能为空"},
+			},
+			IsError: true,
+		}, nil, fmt.Errorf("文档ID不能为空")
+	}
+
 	userId, err := utils.ExtractUserID(req)
 	if err != nil {
 		return &mcp.CallToolResult{
@@ -181,7 +196,7 @@ func GetTextDocument(_ context.Context, req *mcp.CallToolRequest, input struct {
 		}, nil, err
 	}
 
-	projectID, err := es.ESClient.GetDocumentProjectID(input.ID)
+	projectID, err := es.ESClient.GetDocumentProjectID(id)
 	if err != nil {
 		return &mcp.CallToolResult{
 			Content: []mcp.Content{
@@ -210,7 +225,7 @@ func GetTextDocument(_ context.Context, req *mcp.CallToolRequest, input struct {
 	}
 
 	// 获取文档
-	document, err := es.ESClient.GetDocument(input.ID)
+	document, err := es.ESClient.GetDocument(id)
 	if err != nil {
 		return &mcp.CallToolResult{
 			Content: []mcp.Content{

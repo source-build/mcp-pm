@@ -174,6 +174,7 @@ func CreateAPIDocument(_ context.Context, req *mcp.CallToolRequest, input struct
 // EditAPIDocument 编辑API文档
 func EditAPIDocument(_ context.Context, req *mcp.CallToolRequest, input struct {
 	ID              string                 `json:"id" jsonschema:"文档ID，必填。要编辑的API文档的唯一标识符。必须是已存在的文档ID，可通过搜索或列表功能获取。"`
+	DocumentId      string                 `json:"document_id" jsonschema:"文档ID，要编辑的API文档的唯一标识符。必须是已存在的文档ID，可通过搜索或列表功能获取。"`
 	Name            string                 `json:"name" jsonschema:"文档名称，可选。更新后的文档名称，如：'userLogin'、'getUserInfo'。支持中英文，长度2-50字符。不传则保持原名称不变。"`
 	Description     string                 `json:"description" jsonschema:"文档描述，可选。更新后的文档详细说明，包括API功能、业务场景和使用方法。建议包含具体的使用示例和注意事项。不传则保持原描述不变。"`
 	Method          string                 `json:"method" jsonschema:"HTTP方法，可选。更新后的API请求方法。必须是标准HTTP方法：GET(查询)、POST(创建)、PUT(更新)、DELETE(删除)、PATCH(部分更新)等。不传则保持原方法不变。"`
@@ -188,7 +189,12 @@ func EditAPIDocument(_ context.Context, req *mcp.CallToolRequest, input struct {
 	Success bool   `json:"success"`
 	Message string `json:"message"`
 }, error) {
-	if input.ID == "" {
+	id := input.ID
+	if id == "" && input.DocumentId != "" {
+		id = input.DocumentId
+	}
+
+	if id == "" {
 		return &mcp.CallToolResult{
 				Content: []mcp.Content{
 					&mcp.TextContent{Text: "文档ID不能为空"},
@@ -272,7 +278,7 @@ func EditAPIDocument(_ context.Context, req *mcp.CallToolRequest, input struct {
 		doc["tags"] = input.Tags
 	}
 
-	err = es.ESClient.EditDocument(input.ID, doc)
+	err = es.ESClient.EditDocument(id, doc)
 	if err != nil {
 		return &mcp.CallToolResult{
 				Content: []mcp.Content{
@@ -300,11 +306,29 @@ func EditAPIDocument(_ context.Context, req *mcp.CallToolRequest, input struct {
 
 // DelAPIDocument 删除API文档
 func DelAPIDocument(_ context.Context, req *mcp.CallToolRequest, input struct {
-	ID string `json:"id" jsonschema:"文档ID，必填。要删除的API文档的唯一标识符。必须是已存在的文档ID，删除操作不可恢复，请谨慎操作。建议在删除前先备份重要文档。"`
+	ID         string `json:"id" jsonschema:"文档ID，必填。要删除的API文档的唯一标识符。必须是已存在的文档ID，删除操作不可恢复，请谨慎操作。建议在删除前先备份重要文档。"`
+	DocumentId string `json:"document_id" jsonschema:"文档ID。要删除的API文档的唯一标识符。必须是已存在的文档ID，删除操作不可恢复，请谨慎操作。建议在删除前先备份重要文档。"`
 }) (*mcp.CallToolResult, struct {
 	Success bool   `json:"success"`
 	Message string `json:"message"`
 }, error) {
+	id := input.ID
+	if id == "" && input.DocumentId != "" {
+		id = input.DocumentId
+	}
+
+	if id == "" {
+		return &mcp.CallToolResult{
+				Content: []mcp.Content{
+					&mcp.TextContent{Text: "文档ID不能为空"},
+				},
+				IsError: true,
+			}, struct {
+				Success bool   `json:"success"`
+				Message string `json:"message"`
+			}{Success: false, Message: "文档ID不能为空"}, fmt.Errorf("文档ID不能为空")
+	}
+
 	userId, err := utils.ExtractUserID(req)
 	if err != nil {
 		return &mcp.CallToolResult{
@@ -318,7 +342,7 @@ func DelAPIDocument(_ context.Context, req *mcp.CallToolRequest, input struct {
 			}{Success: false, Message: fmt.Sprintf("获取用户ID失败: %v", err)}, err
 	}
 
-	projectID, err := es.ESClient.GetDocumentProjectID(input.ID)
+	projectID, err := es.ESClient.GetDocumentProjectID(id)
 	if err != nil {
 		return &mcp.CallToolResult{
 				Content: []mcp.Content{
@@ -357,7 +381,7 @@ func DelAPIDocument(_ context.Context, req *mcp.CallToolRequest, input struct {
 
 	_, err = es.ESClient.Client().Delete().
 		Index(config.Config.DocumentIndex).
-		Id(input.ID).
+		Id(id).
 		Refresh("true").
 		Do(context.Background())
 	if err != nil {
@@ -384,8 +408,23 @@ func DelAPIDocument(_ context.Context, req *mcp.CallToolRequest, input struct {
 
 // GetAPIDocument 获取API文档
 func GetAPIDocument(_ context.Context, req *mcp.CallToolRequest, input struct {
-	ID string `json:"id" jsonschema:"文档ID，必填。要获取的API文档的唯一标识符。必须是已存在的文档ID，可通过搜索或列表功能获取。返回完整的文档结构和内容。"`
+	ID         string `json:"id" jsonschema:"文档ID，必填。要获取的API文档的唯一标识符。必须是已存在的文档ID，可通过搜索或列表功能获取。返回完整的文档结构和内容。"`
+	DocumentId string `json:"document_id" jsonschema:"文档ID。要获取的API文档的唯一标识符。必须是已存在的文档ID，可通过搜索或列表功能获取。返回完整的文档结构和内容。"`
 }) (*mcp.CallToolResult, *types.Document, error) {
+	id := input.ID
+	if id == "" && input.DocumentId != "" {
+		id = input.DocumentId
+	}
+
+	if id == "" {
+		return &mcp.CallToolResult{
+			Content: []mcp.Content{
+				&mcp.TextContent{Text: "文档ID不能为空"},
+			},
+			IsError: true,
+		}, nil, fmt.Errorf("文档ID不能为空")
+	}
+
 	userId, err := utils.ExtractUserID(req)
 	if err != nil {
 		return &mcp.CallToolResult{
@@ -396,7 +435,7 @@ func GetAPIDocument(_ context.Context, req *mcp.CallToolRequest, input struct {
 		}, nil, err
 	}
 
-	projectID, err := es.ESClient.GetDocumentProjectID(input.ID)
+	projectID, err := es.ESClient.GetDocumentProjectID(id)
 	if err != nil {
 		return &mcp.CallToolResult{
 			Content: []mcp.Content{
@@ -425,7 +464,7 @@ func GetAPIDocument(_ context.Context, req *mcp.CallToolRequest, input struct {
 	}
 
 	// 获取文档
-	document, err := es.ESClient.GetDocument(input.ID)
+	document, err := es.ESClient.GetDocument(id)
 	if err != nil {
 		return &mcp.CallToolResult{
 			Content: []mcp.Content{
