@@ -38,7 +38,7 @@ import (
 // ListProjects 列出项目处理器
 func ListProjects(_ context.Context, req *mcp.CallToolRequest, input struct{}) (*mcp.CallToolResult, struct {
 	Success  bool             `json:"success"`
-	Projects []*types.Project `json:"projects"`
+	Projects []*types.Project `json:"projects,omitempty"`
 	Count    int              `json:"count"`
 	Message  string           `json:"message"`
 }, error) {
@@ -55,7 +55,7 @@ func ListProjects(_ context.Context, req *mcp.CallToolRequest, input struct{}) (
 				IsError: true,
 			}, struct {
 				Success  bool             `json:"success"`
-				Projects []*types.Project `json:"projects"`
+				Projects []*types.Project `json:"projects,omitempty"`
 				Count    int              `json:"count"`
 				Message  string           `json:"message"`
 			}{Success: false, Count: 0, Message: fmt.Sprintf("获取失败: %v", err)}, err
@@ -104,7 +104,7 @@ func ListProjects(_ context.Context, req *mcp.CallToolRequest, input struct{}) (
 			},
 		}, struct {
 			Success  bool             `json:"success"`
-			Projects []*types.Project `json:"projects"`
+			Projects []*types.Project `json:"projects,omitempty"`
 			Count    int              `json:"count"`
 			Message  string           `json:"message"`
 		}{Success: true, Projects: projects, Count: len(projects), Message: "获取项目列表成功"}, nil
