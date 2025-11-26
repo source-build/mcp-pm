@@ -7,13 +7,13 @@ import (
 // Project 项目模型
 type Project struct {
 	ID          string            `json:"id" jsonschema:"项目ID，必填。项目的唯一标识符，用于区分不同项目。建议使用UUID或类似的唯一ID格式。"`
-	CreatorId   string            `json:"creator_id" jsonschema:"创建者ID，必填。项目创建者的用户ID，用于标识项目的所有者。通常为系统分配的唯一用户标识。"`
-	Name        string            `json:"name" jsonschema:"项目名称，必填。项目的显示名称，用于界面展示和识别。建议使用有意义的名称，如：'用户管理系统'、'API文档项目'等。长度2-100字符。"`
-	Description string            `json:"description" jsonschema:"项目描述，可选。项目的详细说明，包括项目用途、功能介绍、技术栈等。支持Markdown格式，建议包含项目背景和使用场景。"`
-	UserIds     []string          `json:"user_ids" jsonschema:"用户ID列表，必填。可以访问此项目的用户ID数组。包括创建者和被授权的用户。格式：['user-123', 'user-456']。用于权限控制。"`
-	CreatedAt   *time.Time        `json:"created_at" jsonschema:"创建时间，可选。项目的创建时间戳，格式为RFC3339。自动生成，通常不需要手动设置。"`
-	UpdatedAt   *time.Time        `json:"updated_at" jsonschema:"更新时间，可选。项目的最后更新时间戳，格式为RFC3339。自动更新，用于跟踪项目修改历史。"`
-	Metadata    map[string]string `json:"metadata" jsonschema:"项目元数据，可选。项目的附加信息键值对，如：{'env': 'production', 'version': '1.0.0'}。用于存储自定义属性。"`
+	CreatorId   string            `json:"creator_id,omitempty" jsonschema:"创建者ID，必填。项目创建者的用户ID，用于标识项目的所有者。通常为系统分配的唯一用户标识。"`
+	Name        string            `json:"name,omitempty" jsonschema:"项目名称，必填。项目的显示名称，用于界面展示和识别。建议使用有意义的名称，如：'用户管理系统'、'API文档项目'等。长度2-100字符。"`
+	Description string            `json:"description,omitempty" jsonschema:"项目描述，可选。项目的详细说明，包括项目用途、功能介绍、技术栈等。支持Markdown格式，建议包含项目背景和使用场景。"`
+	UserIds     []string          `json:"user_ids,omitempty" jsonschema:"用户ID列表，必填。可以访问此项目的用户ID数组。包括创建者和被授权的用户。格式：['user-123', 'user-456']。用于权限控制。"`
+	CreatedAt   *time.Time        `json:"created_at,omitempty" jsonschema:"创建时间，可选。项目的创建时间戳，格式为RFC3339。自动生成，通常不需要手动设置。"`
+	UpdatedAt   *time.Time        `json:"updated_at,omitempty" jsonschema:"更新时间，可选。项目的最后更新时间戳，格式为RFC3339。自动更新，用于跟踪项目修改历史。"`
+	Metadata    map[string]string `json:"metadata,omitempty" jsonschema:"项目元数据，可选。项目的附加信息键值对，如：{'env': 'production', 'version': '1.0.0'}。用于存储自定义属性。"`
 }
 
 // DocumentType 文档类型枚举

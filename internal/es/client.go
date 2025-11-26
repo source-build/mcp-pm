@@ -48,7 +48,6 @@ func InitESClient() error {
 		ctx:    ctx,
 	}
 
-	//初始化索引
 	//if err = ESClient.InitIndices(); err != nil {
 	//	return fmt.Errorf("初始化索引失败: %v", err)
 	//}
@@ -59,14 +58,14 @@ func InitESClient() error {
 // InitIndices 初始化索引
 func (c *Client) InitIndices() error {
 	// 创建项目索引
-	//if err := InitProjectESMappingJson(); err != nil {
-	//	return fmt.Errorf("创建项目索引失败: %v", err)
-	//}
+	if err := InitProjectESMappingJson(); err != nil {
+		return fmt.Errorf("创建项目索引失败: %v", err)
+	}
 
 	// 创建文档索引
-	if err := InitDocumentESMappingJson(); err != nil {
-		return fmt.Errorf("创建文档索引失败: %v", err)
-	}
+	//if err := InitDocumentESMappingJson(); err != nil {
+	//	return fmt.Errorf("创建文档索引失败: %v", err)
+	//}
 
 	return nil
 }
