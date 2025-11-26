@@ -8,14 +8,6 @@ import (
 	"github.com/source-build/mcp-pm/internal/es"
 )
 
-//func generateToken() {
-//	t, err := token.GenerateToken("123456", "mxd", time.Hour*24)
-//	if err != nil {
-//		panic("生成token失败" + err.Error())
-//	}
-//	fmt.Println(t)
-//}
-
 func main() {
 	// 加载配置
 	err := config.LoadConfig()

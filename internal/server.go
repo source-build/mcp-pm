@@ -128,24 +128,20 @@ func Server() {
 		Scopes: []string{"read"}, // Require "read" permission
 	})
 
-	// 添加日志记录中间件
-	// 用于记录所有请求和响应，便于调试和监控
 	server.AddReceivingMiddleware(middleware.CreateLoggingMiddleware())
 
-	// 创建可流式 HTTP 处理函数
-	// 将MCP协议转换为HTTP接口
-	handler := mcp.NewStreamableHTTPHandler(func(req *http.Request) *mcp.Server { return server }, nil)
+	streamableHandler := mcp.NewStreamableHTTPHandler(func(req *http.Request) *mcp.Server { return server }, nil)
 
-	authenticatedHandler := jwtAuth(handler)
-
-	// jwt: 处理JWT认证请求
-	http.HandleFunc("/mcp", authenticatedHandler.ServeHTTP)
+	// StreamableHTTP
+	http.HandleFunc("/mcp", jwtAuth(streamableHandler).ServeHTTP)
 
 	url := fmt.Sprintf("%s:%s", config.Config.HTTPAddr, config.Config.HTTPPort)
 
 	log.Printf("=======================================")
 	log.Printf("API文档管理MCP服务器启动")
 	log.Printf("服务地址: %s", url)
+	log.Printf("支持的协议端点:")
+	log.Printf("  - /mcp       : StreamableHTTP ")
 	log.Printf("=======================================")
 
 	// 启动 HTTP 服务器

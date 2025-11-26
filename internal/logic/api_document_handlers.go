@@ -471,7 +471,7 @@ func SearchAPIDocuments(_ context.Context, req *mcp.CallToolRequest, input struc
 	Offset    int      `json:"offset,omitempty" jsonschema:"偏移量，可选。分页查询的起始位置，默认0。用于跳过前面的结果，获取后续数据。"`
 }) (*mcp.CallToolResult, struct {
 	Success   bool             `json:"success"`
-	Documents []types.Document `json:"documents"`
+	Documents []types.Document `json:"documents,omitempty"`
 	Count     int              `json:"count"`
 	Message   string           `json:"message"`
 }, error) {
@@ -484,10 +484,10 @@ func SearchAPIDocuments(_ context.Context, req *mcp.CallToolRequest, input struc
 				IsError: true,
 			}, struct {
 				Success   bool             `json:"success"`
-				Documents []types.Document `json:"documents"`
+				Documents []types.Document `json:"documents,omitempty"`
 				Count     int              `json:"count"`
 				Message   string           `json:"message"`
-			}{Success: false, Count: 0, Documents: make([]types.Document, 0), Message: fmt.Sprintf("搜索API文档失败: %v", err)}, err
+			}{Success: false, Count: 0, Message: fmt.Sprintf("搜索API文档失败: %v", err)}, err
 	}
 
 	projectID := input.ProjectID
@@ -502,18 +502,18 @@ func SearchAPIDocuments(_ context.Context, req *mcp.CallToolRequest, input struc
 	if err != nil {
 		return nil, struct {
 			Success   bool             `json:"success"`
-			Documents []types.Document `json:"documents"`
+			Documents []types.Document `json:"documents,omitempty"`
 			Count     int              `json:"count"`
 			Message   string           `json:"message"`
-		}{Success: false, Count: 0, Documents: make([]types.Document, 0), Message: fmt.Sprintf("检查用户在项目中失败: %v", err)}, err
+		}{Success: false, Count: 0, Message: fmt.Sprintf("检查用户在项目中失败: %v", err)}, err
 	}
 	if !is {
 		return nil, struct {
 			Success   bool             `json:"success"`
-			Documents []types.Document `json:"documents"`
+			Documents []types.Document `json:"documents,omitempty"`
 			Count     int              `json:"count"`
 			Message   string           `json:"message"`
-		}{Success: false, Count: 0, Documents: make([]types.Document, 0), Message: fmt.Sprintf("用户不在项目中: %v", userId)}, err
+		}{Success: false, Count: 0, Message: fmt.Sprintf("用户不在项目中: %v", userId)}, err
 	}
 
 	// 构建搜索请求
@@ -536,10 +536,10 @@ func SearchAPIDocuments(_ context.Context, req *mcp.CallToolRequest, input struc
 				IsError: true,
 			}, struct {
 				Success   bool             `json:"success"`
-				Documents []types.Document `json:"documents"`
+				Documents []types.Document `json:"documents,omitempty"`
 				Count     int              `json:"count"`
 				Message   string           `json:"message"`
-			}{Success: false, Count: 0, Documents: make([]types.Document, 0), Message: fmt.Sprintf("搜索失败: %v", err)}, err
+			}{Success: false, Count: 0, Message: fmt.Sprintf("搜索失败: %v", err)}, err
 	}
 
 	// 过滤结果 - 只返回API文档
@@ -621,7 +621,7 @@ func SearchAPIDocuments(_ context.Context, req *mcp.CallToolRequest, input struc
 			},
 		}, struct {
 			Success   bool             `json:"success"`
-			Documents []types.Document `json:"documents"`
+			Documents []types.Document `json:"documents,omitempty"`
 			Count     int              `json:"count"`
 			Message   string           `json:"message"`
 		}{Success: true, Documents: apiDocs, Count: len(apiDocs), Message: "搜索成功"}, nil

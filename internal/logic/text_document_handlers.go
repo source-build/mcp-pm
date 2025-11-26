@@ -230,17 +230,6 @@ func GetTextDocument(_ context.Context, req *mcp.CallToolRequest, input struct {
 		}, nil, fmt.Errorf("文档类型不匹配")
 	}
 
-	// 验证权限 - 使用token提取工具函数
-	projectId, err := utils.ExtractProjectID(req)
-	if err == nil && document.ProjectID != projectId {
-		return &mcp.CallToolResult{
-			Content: []mcp.Content{
-				&mcp.TextContent{Text: fmt.Sprintf("无权访问该文本文档，文档属于项目 %s，但当前项目是 %s", document.ProjectID, projectId)},
-			},
-			IsError: true,
-		}, nil, fmt.Errorf("无权访问")
-	}
-
 	// 格式化输出
 	docJSON, err := json.MarshalIndent(document, "", "  ")
 	if err != nil {
@@ -267,7 +256,7 @@ func SearchTextDocuments(_ context.Context, req *mcp.CallToolRequest, input stru
 	Offset      int      `json:"offset,omitempty" jsonschema:"偏移量，可选。分页查询的起始位置，默认0。用于跳过前面的结果，获取后续数据。支持大量文档的分页浏览。"`
 }) (*mcp.CallToolResult, struct {
 	Success   bool             `json:"success"`
-	Documents []types.Document `json:"documents"`
+	Documents []types.Document `json:"documents,omitempty"`
 	Count     int              `json:"count"`
 	Message   string           `json:"message"`
 }, error) {
@@ -280,10 +269,10 @@ func SearchTextDocuments(_ context.Context, req *mcp.CallToolRequest, input stru
 				IsError: true,
 			}, struct {
 				Success   bool             `json:"success"`
-				Documents []types.Document `json:"documents"`
+				Documents []types.Document `json:"documents,omitempty"`
 				Count     int              `json:"count"`
 				Message   string           `json:"message"`
-			}{Success: false, Count: 0, Documents: make([]types.Document, 0), Message: fmt.Sprintf("搜索API文档失败: %v", err)}, err
+			}{Success: false, Count: 0, Message: fmt.Sprintf("搜索API文档失败: %v", err)}, err
 	}
 
 	projectID := input.ProjectID
@@ -298,7 +287,7 @@ func SearchTextDocuments(_ context.Context, req *mcp.CallToolRequest, input stru
 	if err != nil {
 		return nil, struct {
 			Success   bool             `json:"success"`
-			Documents []types.Document `json:"documents"`
+			Documents []types.Document `json:"documents,omitempty"`
 			Count     int              `json:"count"`
 			Message   string           `json:"message"`
 		}{Success: false, Count: 0, Documents: make([]types.Document, 0), Message: fmt.Sprintf("检查用户在项目中失败: %v", err)}, err
@@ -306,10 +295,10 @@ func SearchTextDocuments(_ context.Context, req *mcp.CallToolRequest, input stru
 	if !is {
 		return nil, struct {
 			Success   bool             `json:"success"`
-			Documents []types.Document `json:"documents"`
+			Documents []types.Document `json:"documents,omitempty"`
 			Count     int              `json:"count"`
 			Message   string           `json:"message"`
-		}{Success: false, Count: 0, Documents: make([]types.Document, 0), Message: fmt.Sprintf("用户不在项目中: %v", userId)}, err
+		}{Success: false, Count: 0, Message: fmt.Sprintf("用户不在项目中: %v", userId)}, err
 	}
 
 	// 构建搜索请求
@@ -332,10 +321,10 @@ func SearchTextDocuments(_ context.Context, req *mcp.CallToolRequest, input stru
 				IsError: true,
 			}, struct {
 				Success   bool             `json:"success"`
-				Documents []types.Document `json:"documents"`
+				Documents []types.Document `json:"documents,omitempty"`
 				Count     int              `json:"count"`
 				Message   string           `json:"message"`
-			}{Success: false, Count: 0, Documents: make([]types.Document, 0), Message: fmt.Sprintf("搜索失败: %v", err)}, err
+			}{Success: false, Count: 0, Message: fmt.Sprintf("搜索失败: %v", err)}, err
 	}
 
 	// 过滤结果 - 只返回文本文档
@@ -397,7 +386,7 @@ func SearchTextDocuments(_ context.Context, req *mcp.CallToolRequest, input stru
 			},
 		}, struct {
 			Success   bool             `json:"success"`
-			Documents []types.Document `json:"documents"`
+			Documents []types.Document `json:"documents,omitempty"`
 			Count     int              `json:"count"`
 			Message   string           `json:"message"`
 		}{Success: true, Documents: textDocs, Count: len(textDocs), Message: "搜索成功"}, nil
