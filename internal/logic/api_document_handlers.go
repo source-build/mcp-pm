@@ -39,7 +39,7 @@ API文档管理处理器
 
 // CreateAPIDocument 创建API文档
 func CreateAPIDocument(_ context.Context, req *mcp.CallToolRequest, input struct {
-	ProjectID       string                 `json:"project_id" jsonschema:"项目ID，可选。但是请保证传入的项目id是正确的"`
+	ProjectID       string                 `json:"project_id,omitempty" jsonschema:"项目ID，可选。要列出API文档的项目ID。必须是有效的项目标识符，不传将查询默认项目，可从"list_projects"或"get_project_info"工具中获取。"`
 	Name            string                 `json:"name" jsonschema:"文档名称，必填。用于标识和搜索API文档。建议使用有意义的名称，如：'userLogin'、'getUserInfo'、'createOrder'等。支持中英文，长度2-50字符。"`
 	Description     string                 `json:"description" jsonschema:"文档描述，必填。详细说明API的功能、业务场景和使用方法。建议包括：API用途、输入输出说明、使用示例、注意事项等。"`
 	Method          string                 `json:"method" jsonschema:"HTTP方法，必填。API的请求方法。必须是标准HTTP方法：GET(查询)、POST(创建)、PUT(更新)、DELETE(删除)、PATCH(部分更新)、HEAD、OPTIONS、TRACE。请根据API的实际功能选择。"`
@@ -69,7 +69,15 @@ func CreateAPIDocument(_ context.Context, req *mcp.CallToolRequest, input struct
 			}{Success: false, Message: fmt.Sprintf("获取用户ID失败: %v", err)}, err
 	}
 
-	is, err := es.ESClient.CheckUserInProject(input.ProjectID, userId)
+	projectID := input.ProjectID
+	if projectID == "" {
+		projectId, err := utils.ExtractProjectID(req)
+		if err == nil {
+			projectID = projectId
+		}
+	}
+
+	is, err := es.ESClient.CheckUserInProject(projectID, userId)
 	if err != nil {
 		return nil, struct {
 			Success  bool            `json:"success"`
@@ -106,7 +114,7 @@ func CreateAPIDocument(_ context.Context, req *mcp.CallToolRequest, input struct
 	// 创建API文档对象
 	document := &types.Document{
 		ID:          hex.EncodeToString(m.Sum(nil)),
-		ProjectID:   input.ProjectID,
+		ProjectID:   projectID,
 		CreatorID:   userId,
 		Type:        types.DocumentTypeAPI,
 		Name:        input.Name,
@@ -437,17 +445,6 @@ func GetAPIDocument(_ context.Context, req *mcp.CallToolRequest, input struct {
 		}, nil, fmt.Errorf("文档类型不匹配")
 	}
 
-	// 验证权限 - 使用token提取工具函数
-	projectId, err := utils.ExtractProjectID(req)
-	if err == nil && document.ProjectID != projectId {
-		return &mcp.CallToolResult{
-			Content: []mcp.Content{
-				&mcp.TextContent{Text: fmt.Sprintf("无权访问该API文档，文档属于项目 %s，但当前项目是 %s", document.ProjectID, projectId)},
-			},
-			IsError: true,
-		}, nil, fmt.Errorf("无权访问")
-	}
-
 	// 格式化输出
 	docJSON, err := json.MarshalIndent(document, "", "  ")
 	if err != nil {
@@ -466,7 +463,7 @@ func GetAPIDocument(_ context.Context, req *mcp.CallToolRequest, input struct {
 
 // SearchAPIDocuments 搜索API文档
 func SearchAPIDocuments(_ context.Context, req *mcp.CallToolRequest, input struct {
-	ProjectID string   `json:"project_id" jsonschema:"项目ID，必填。要在其中搜索API文档的项目ID。必须是有效的项目标识符，用户需要有该项目的访问权限。"`
+	ProjectID string   `json:"project_id,omitempty" jsonschema:"项目ID，可选。要列出API文档的项目ID。必须是有效的项目标识符，不传将查询默认项目，可从"list_projects"或"get_project_info"工具中获取。"`
 	Query     string   `json:"query" jsonschema:"搜索关键词，必填。用于搜索API文档的关键词，可以是文档名称、路径、描述中的任意词汇。如：'user'、'login'、'/api/users'。支持模糊搜索。"`
 	Method    string   `json:"method,omitempty" jsonschema:"HTTP方法筛选，可选。按HTTP方法过滤结果，如：'GET'、'POST'等。必须是标准HTTP方法。不传则返回所有方法的文档。"`
 	Tags      []string `json:"tags,omitempty" jsonschema:"标签筛选，可选。按标签过滤文档，如：['user', 'auth', 'v1']。支持多个标签组合筛选。不传则忽略标签过滤。"`
@@ -490,17 +487,25 @@ func SearchAPIDocuments(_ context.Context, req *mcp.CallToolRequest, input struc
 				Documents []types.Document `json:"documents"`
 				Count     int              `json:"count"`
 				Message   string           `json:"message"`
-			}{Success: false, Count: 0, Message: fmt.Sprintf("搜索API文档失败: %v", err)}, err
+			}{Success: false, Count: 0, Documents: make([]types.Document, 0), Message: fmt.Sprintf("搜索API文档失败: %v", err)}, err
 	}
 
-	is, err := es.ESClient.CheckUserInProject(input.ProjectID, userId)
+	projectID := input.ProjectID
+	if projectID == "" {
+		projectId, err := utils.ExtractProjectID(req)
+		if err == nil {
+			projectID = projectId
+		}
+	}
+
+	is, err := es.ESClient.CheckUserInProject(projectID, userId)
 	if err != nil {
 		return nil, struct {
 			Success   bool             `json:"success"`
 			Documents []types.Document `json:"documents"`
 			Count     int              `json:"count"`
 			Message   string           `json:"message"`
-		}{Success: false, Count: 0, Message: fmt.Sprintf("检查用户在项目中失败: %v", err)}, err
+		}{Success: false, Count: 0, Documents: make([]types.Document, 0), Message: fmt.Sprintf("检查用户在项目中失败: %v", err)}, err
 	}
 	if !is {
 		return nil, struct {
@@ -508,7 +513,7 @@ func SearchAPIDocuments(_ context.Context, req *mcp.CallToolRequest, input struc
 			Documents []types.Document `json:"documents"`
 			Count     int              `json:"count"`
 			Message   string           `json:"message"`
-		}{Success: false, Count: 0, Message: fmt.Sprintf("用户不在项目中: %v", userId)}, err
+		}{Success: false, Count: 0, Documents: make([]types.Document, 0), Message: fmt.Sprintf("用户不在项目中: %v", userId)}, err
 	}
 
 	// 构建搜索请求
@@ -522,7 +527,7 @@ func SearchAPIDocuments(_ context.Context, req *mcp.CallToolRequest, input struc
 	}
 
 	// 执行搜索
-	result, err := es.ESClient.SearchDocuments(input.ProjectID, searchReq)
+	result, err := es.ESClient.SearchDocuments(projectID, searchReq)
 	if err != nil {
 		return &mcp.CallToolResult{
 				Content: []mcp.Content{
@@ -534,7 +539,7 @@ func SearchAPIDocuments(_ context.Context, req *mcp.CallToolRequest, input struc
 				Documents []types.Document `json:"documents"`
 				Count     int              `json:"count"`
 				Message   string           `json:"message"`
-			}{Success: false, Count: 0, Message: fmt.Sprintf("搜索失败: %v", err)}, err
+			}{Success: false, Count: 0, Documents: make([]types.Document, 0), Message: fmt.Sprintf("搜索失败: %v", err)}, err
 	}
 
 	// 过滤结果 - 只返回API文档
@@ -551,39 +556,57 @@ func SearchAPIDocuments(_ context.Context, req *mcp.CallToolRequest, input struc
 
 	// 构建结果文本
 	resultText := fmt.Sprintf("# API文档搜索结果: \"%s\"\n\n", input.Query)
-	resultText += fmt.Sprintf("找到 **%d** 个匹配的API文档（共 %d 个）\n\n", len(apiDocs), result.Total)
 
-	for i, doc := range apiDocs {
-		resultText += fmt.Sprintf("**%d. %s**\n", i+1, doc.Name)
-		resultText += fmt.Sprintf("   - ID: `%s`\n", doc.ID)
-		resultText += fmt.Sprintf("   - 方法: %s\n", doc.APIContent.Method)
-		resultText += fmt.Sprintf("   - 路径: %s\n", doc.APIContent.Path)
-		resultText += fmt.Sprintf("   - 描述: %s\n", doc.Description)
-		// 请求头
-		if doc.APIContent.Header != nil {
-			resultText += fmt.Sprintf("   - 请求头: %v\n", doc.APIContent.Header)
+	if len(apiDocs) == 0 {
+		// 没有找到文档时的友好提示
+		resultText += fmt.Sprintf("🔍 **未找到匹配的API文档**\n\n")
+		resultText += fmt.Sprintf("搜索关键词 \"%s\" 没有找到任何匹配的API文档。\n\n", input.Query)
+		resultText += "**建议：**\n"
+		resultText += "- 尝试使用更通用的关键词，如 'user'、'api'、'system'\n"
+		resultText += "- 检查关键词拼写是否正确\n"
+		resultText += "- 使用不同的HTTP方法筛选（如 'GET'、'POST'）\n"
+		resultText += "- 尝试使用标签筛选，如 'auth'、'user'、'admin'\n"
+		resultText += "- 如果这是新项目，可以先使用 `create_api_document` 创建第一个API文档\n\n"
+		resultText += "**可用操作：**\n"
+		resultText += "- 使用 `list_api_documents` 查看所有API文档\n"
+		resultText += "- 使用 `create_api_document` 创建新的API文档\n"
+		resultText += "- 使用 `list_projects` 查看可用项目"
+	} else {
+		// 找到文档时的正常显示
+		resultText += fmt.Sprintf("找到 **%d** 个匹配的API文档（共 %d 个）\n\n", len(apiDocs), result.Total)
+
+		for i, doc := range apiDocs {
+			resultText += fmt.Sprintf("**%d. %s**\n", i+1, doc.Name)
+			resultText += fmt.Sprintf("   - ID: `%s`\n", doc.ID)
+			resultText += fmt.Sprintf("   - 方法: %s\n", doc.APIContent.Method)
+			resultText += fmt.Sprintf("   - 路径: %s\n", doc.APIContent.Path)
+			resultText += fmt.Sprintf("   - 描述: %s\n", doc.Description)
+			// 请求头
+			if doc.APIContent.Header != nil {
+				resultText += fmt.Sprintf("   - 请求头: %v\n", doc.APIContent.Header)
+			}
+			// 查询参数
+			if doc.APIContent.Query != nil {
+				resultText += fmt.Sprintf("   - 查询参数: %v\n", doc.APIContent.Query)
+			}
+			// 路径参数
+			if doc.APIContent.PathParams != nil {
+				resultText += fmt.Sprintf("   - 路径参数: %v\n", doc.APIContent.PathParams)
+			}
+			// Body参数
+			if doc.APIContent.Body != nil {
+				resultText += fmt.Sprintf("   - Body参数: %v\n", doc.APIContent.Body)
+			}
+			// 响应体
+			if doc.APIContent.ResponseBizCode != "" {
+				resultText += fmt.Sprintf("   - 业务状态码: %v\n", doc.APIContent.ResponseBizCode)
+			}
+			if len(doc.Tags) > 0 {
+				resultText += fmt.Sprintf("   - 标签: %v\n", doc.Tags)
+			}
+			resultText += fmt.Sprintf("   - 更新时间: %s\n", doc.UpdatedAt)
+			resultText += "\n"
 		}
-		// 查询参数
-		if doc.APIContent.Query != nil {
-			resultText += fmt.Sprintf("   - 查询参数: %v\n", doc.APIContent.Query)
-		}
-		// 路径参数
-		if doc.APIContent.PathParams != nil {
-			resultText += fmt.Sprintf("   - 路径参数: %v\n", doc.APIContent.PathParams)
-		}
-		// Body参数
-		if doc.APIContent.Body != nil {
-			resultText += fmt.Sprintf("   - Body参数: %v\n", doc.APIContent.Body)
-		}
-		// 响应体
-		if doc.APIContent.ResponseBizCode != "" {
-			resultText += fmt.Sprintf("   - 业务状态码: %v\n", doc.APIContent.ResponseBizCode)
-		}
-		if len(doc.Tags) > 0 {
-			resultText += fmt.Sprintf("   - 标签: %v\n", doc.Tags)
-		}
-		resultText += fmt.Sprintf("   - 更新时间: %s\n", doc.UpdatedAt)
-		resultText += "\n"
 	}
 
 	resultText += "---\n\n"
@@ -606,14 +629,14 @@ func SearchAPIDocuments(_ context.Context, req *mcp.CallToolRequest, input struc
 
 // ListAPIDocuments 列出API文档
 func ListAPIDocuments(_ context.Context, req *mcp.CallToolRequest, input struct {
-	ProjectID string `json:"project_id,omitempty" jsonschema:"项目ID，必填。要列出API文档的项目ID。必须是有效的项目标识符，用户需要有该项目的访问权限。"`
+	ProjectID string `json:"project_id,omitempty" jsonschema:"项目ID，可选。要列出API文档的项目ID。必须是有效的项目标识符，不传将查询默认项目，可从"list_projects"或"get_project_info"工具中获取。"`
 	Query     string `json:"query,omitempty" jsonschema:"搜索关键词，可选。用于在列表中进一步搜索的过滤关键词，如：'user'、'login'。支持模糊搜索。不传则返回所有文档。"`
 	Method    string `json:"method,omitempty" jsonschema:"HTTP方法筛选，可选。按HTTP方法过滤结果，如：'GET'、'POST'等。必须是标准HTTP方法。不传则返回所有方法的文档。"`
 	Limit     int    `json:"limit,omitempty" jsonschema:"返回数量限制，可选。控制返回结果数量，默认20，最大100。用于分页浏览。"`
 	Offset    int    `json:"offset,omitempty" jsonschema:"偏移量，可选。分页查询的起始位置，默认0。用于跳过前面的结果，获取后续数据。"`
 }) (*mcp.CallToolResult, struct {
 	Success   bool             `json:"success"`
-	Documents []types.Document `json:"documents"`
+	Documents []types.Document `json:"documents,omitempty"`
 	Count     int              `json:"count"`
 	Message   string           `json:"message"`
 }, error) {
@@ -626,17 +649,25 @@ func ListAPIDocuments(_ context.Context, req *mcp.CallToolRequest, input struct 
 				IsError: true,
 			}, struct {
 				Success   bool             `json:"success"`
-				Documents []types.Document `json:"documents"`
+				Documents []types.Document `json:"documents,omitempty"`
 				Count     int              `json:"count"`
 				Message   string           `json:"message"`
 			}{Success: false, Count: 0, Message: fmt.Sprintf("搜索API文档失败: %v", err)}, err
 	}
 
-	is, err := es.ESClient.CheckUserInProject(input.ProjectID, userId)
+	projectID := input.ProjectID
+	if projectID == "" {
+		projectId, err := utils.ExtractProjectID(req)
+		if err == nil {
+			projectID = projectId
+		}
+	}
+
+	is, err := es.ESClient.CheckUserInProject(projectID, userId)
 	if err != nil {
 		return nil, struct {
 			Success   bool             `json:"success"`
-			Documents []types.Document `json:"documents"`
+			Documents []types.Document `json:"documents,omitempty"`
 			Count     int              `json:"count"`
 			Message   string           `json:"message"`
 		}{Success: false, Count: 0, Message: fmt.Sprintf("检查用户在项目中失败: %v", err)}, err
@@ -644,17 +675,17 @@ func ListAPIDocuments(_ context.Context, req *mcp.CallToolRequest, input struct 
 	if !is {
 		return nil, struct {
 			Success   bool             `json:"success"`
-			Documents []types.Document `json:"documents"`
+			Documents []types.Document `json:"documents,omitempty"`
 			Count     int              `json:"count"`
 			Message   string           `json:"message"`
 		}{Success: false, Count: 0, Message: fmt.Sprintf("用户不在项目中: %v", userId)}, err
 	}
 
-	fmt.Printf("🔐 用户 %s 正在项目 %s 中列出API文档\n", userId, input.ProjectID)
+	fmt.Printf("🔐 用户 %s 正在项目 %s 中列出API文档\n", userId, projectID)
 
 	// 设置默认值
 	limit := input.Limit
-	if limit <= 0 {
+	if limit <= 0 || limit > 100 {
 		limit = 20
 	}
 	offset := input.Offset
@@ -674,10 +705,10 @@ func ListAPIDocuments(_ context.Context, req *mcp.CallToolRequest, input struct 
 				IsError: true,
 			}, struct {
 				Success   bool             `json:"success"`
-				Documents []types.Document `json:"documents"`
+				Documents []types.Document `json:"documents,omitempty"`
 				Count     int              `json:"count"`
 				Message   string           `json:"message"`
-			}{Success: false, Count: 0, Message: fmt.Sprintf("列出失败: %v", err)}, err
+			}{Success: false, Count: 0, Message: fmt.Sprintf("列出API文档失败: %v", err)}, err
 	}
 
 	// 如果指定了方法筛选
@@ -699,19 +730,41 @@ func ListAPIDocuments(_ context.Context, req *mcp.CallToolRequest, input struct 
 	}
 
 	resultText := fmt.Sprintf("# API文档列表 (%s)\n\n", methodFilter)
-	resultText += fmt.Sprintf("显示 **%d** 个API文档（共 %d 个）\n\n", len(result.Documents), result.Total)
 
-	for i, doc := range result.Documents {
-		resultText += fmt.Sprintf("**%d. %s**\n", i+1, doc.Name)
-		resultText += fmt.Sprintf("   - ID: `%s`\n", doc.ID)
-		resultText += fmt.Sprintf("   - 方法: %s\n", doc.APIContent.Method)
-		resultText += fmt.Sprintf("   - 路径: %s\n", doc.APIContent.Path)
-		resultText += fmt.Sprintf("   - 描述: %s\n", doc.Description)
-		if len(doc.Tags) > 0 {
-			resultText += fmt.Sprintf("   - 标签: %v\n", doc.Tags)
+	if len(result.Documents) == 0 {
+		// 没有找到文档时的友好提示
+		resultText += fmt.Sprintf("📝 **暂无API文档**\n\n")
+		resultText += fmt.Sprintf("当前项目中还没有任何API文档。\n\n")
+		resultText += "**建议：**\n"
+		resultText += "- 使用 `create_api_document` 创建第一个API文档\n"
+		resultText += "- 可以先定义常见的API，如用户登录、数据查询等\n"
+		resultText += "- 为API文档添加清晰的描述和标签便于管理\n"
+		resultText += "- 使用 `list_text_documents` 查看是否有其他类型的文档\n\n"
+		resultText += "**创建API文档示例：**\n"
+		resultText += "```bash\n"
+		resultText += "# 创建用户登录API文档\n"
+		resultText += "create_api_document(\n"
+		resultText += "  name='userLogin',\n"
+		resultText += "  description='用户登录接口',\n"
+		resultText += "  method='POST',\n"
+		resultText += "  path='/api/auth/login',\n"
+		resultText += "  body={'username': 'string', 'password': 'string'},\n"
+		resultText += "  tags=['auth', 'user']\n"
+		resultText += ")\n```"
+	} else {
+		resultText += fmt.Sprintf("显示 **%d** 个API文档（共 %d 个）\n\n", len(result.Documents), result.Total)
+		for i, doc := range result.Documents {
+			resultText += fmt.Sprintf("**%d. %s**\n", i+1, doc.Name)
+			resultText += fmt.Sprintf("   - ID: `%s`\n", doc.ID)
+			resultText += fmt.Sprintf("   - 方法: %s\n", doc.APIContent.Method)
+			resultText += fmt.Sprintf("   - 路径: %s\n", doc.APIContent.Path)
+			resultText += fmt.Sprintf("   - 描述: %s\n", doc.Description)
+			if len(doc.Tags) > 0 {
+				resultText += fmt.Sprintf("   - 标签: %v\n", doc.Tags)
+			}
+			resultText += fmt.Sprintf("   - 更新时间: %s\n", doc.UpdatedAt)
+			resultText += "\n"
 		}
-		resultText += fmt.Sprintf("   - 更新时间: %s\n", doc.UpdatedAt)
-		resultText += "\n"
 	}
 
 	resultText += "---\n\n"
@@ -719,6 +772,9 @@ func ListAPIDocuments(_ context.Context, req *mcp.CallToolRequest, input struct 
 	resultText += "- 使用 `search_api_documents` 进行详细搜索\n"
 	resultText += "- 使用 `get_api_document` 获取完整文档结构\n"
 	resultText += "- 通过标签分类管理不同类型的API文档"
+	if len(result.Documents) == 0 {
+		resultText += "\n- 现在就创建第一个API文档开始管理你的API吧！"
+	}
 
 	return &mcp.CallToolResult{
 			Content: []mcp.Content{
@@ -726,8 +782,8 @@ func ListAPIDocuments(_ context.Context, req *mcp.CallToolRequest, input struct 
 			},
 		}, struct {
 			Success   bool             `json:"success"`
-			Documents []types.Document `json:"documents"`
+			Documents []types.Document `json:"documents,omitempty"`
 			Count     int              `json:"count"`
 			Message   string           `json:"message"`
-		}{Success: true, Documents: result.Documents, Count: len(result.Documents), Message: "列出成功"}, nil
+		}{Success: true, Documents: result.Documents, Count: len(result.Documents), Message: "列出API文档成功"}, nil
 }

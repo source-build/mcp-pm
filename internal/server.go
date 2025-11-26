@@ -29,7 +29,10 @@ func createMCPServer() *mcp.Server {
 	// ========================================
 	// 项目管理工具
 	// ========================================
-	// 注意：这些工具用于项目上下文管理，不包括项目创建等管理功能
+	mcp.AddTool(server, &mcp.Tool{
+		Name:        "get_default_project",
+		Description: "获取默认项目。用于获取当前用户默认设置的项目信息。",
+	}, logic.GetDefaultProject)
 
 	mcp.AddTool(server, &mcp.Tool{
 		Name:        "list_projects",
@@ -44,7 +47,6 @@ func createMCPServer() *mcp.Server {
 	// ========================================
 	// API文档管理工具
 	// ========================================
-	// 注意：这些工具专门用于管理API接口文档，包括REST、GraphQL、RPC等类型
 
 	mcp.AddTool(server, &mcp.Tool{
 		Name:        "create_api_document",
@@ -77,7 +79,6 @@ func createMCPServer() *mcp.Server {
 	// ========================================
 	// 文本文档管理工具
 	// ========================================
-	// 注意：这些工具专门用于管理文本文档，包括README、配置、提示词、规范等类型
 
 	mcp.AddTool(server, &mcp.Tool{
 		Name:        "create_text_document",

@@ -110,6 +110,98 @@ func ListProjects(_ context.Context, req *mcp.CallToolRequest, input struct{}) (
 		}{Success: true, Projects: projects, Count: len(projects), Message: "获取项目列表成功"}, nil
 }
 
+// GetDefaultProject 获取默认项目
+func GetDefaultProject(_ context.Context, req *mcp.CallToolRequest, input struct{}) (*mcp.CallToolResult, struct {
+	Success bool           `json:"success"`
+	Project *types.Project `json:"project"`
+	Message string         `json:"message"`
+}, error) {
+	// 获取项目管理器
+	p := pm.NewProjectManager()
+
+	// 获取用户ID和项目ID
+	userId, err := utils.ExtractUserID(req)
+	if err != nil {
+		return &mcp.CallToolResult{
+				Content: []mcp.Content{
+					&mcp.TextContent{Text: fmt.Sprintf("获取用户ID失败: %v", err)},
+				},
+				IsError: true,
+			}, struct {
+				Success bool           `json:"success"`
+				Project *types.Project `json:"project"`
+				Message string         `json:"message"`
+			}{Success: false, Message: fmt.Sprintf("获取用户ID失败: %v", err)}, err
+	}
+
+	// 尝试从Token中获取项目ID
+	projectID, err := utils.ExtractProjectID(req)
+	if err != nil {
+		return &mcp.CallToolResult{
+				Content: []mcp.Content{
+					&mcp.TextContent{Text: "没有指定项目ID，且Token中没有项目信息"},
+				},
+				IsError: true,
+			}, struct {
+				Success bool           `json:"success"`
+				Project *types.Project `json:"project"`
+				Message string         `json:"message"`
+			}{Success: false, Message: "无法确定项目ID"}, nil
+	}
+
+	fmt.Printf("🔐 用户 %s 正在查询项目 %s 的信息\n", userId, projectID)
+
+	// 获取项目信息
+	project, err := p.GetProjectInfo(req, projectID)
+	if err != nil {
+		return &mcp.CallToolResult{
+				Content: []mcp.Content{
+					&mcp.TextContent{Text: fmt.Sprintf("获取项目信息失败: %v", err)},
+				},
+				IsError: true,
+			}, struct {
+				Success bool           `json:"success"`
+				Project *types.Project `json:"project"`
+				Message string         `json:"message"`
+			}{Success: false, Message: fmt.Sprintf("获取失败: %v", err)}, err
+	}
+
+	// 构建结果文本
+	resultText := fmt.Sprintf("# 默认项目详细信息\n\n")
+	resultText += fmt.Sprintf("**项目名称:** %s\n", project.Name)
+	resultText += fmt.Sprintf("**项目ID:** %s\n", project.ID)
+	resultText += fmt.Sprintf("**项目描述:** %s\n", project.Description)
+	resultText += fmt.Sprintf("**创建时间:** %s\n", project.CreatedAt)
+	resultText += fmt.Sprintf("**更新时间:** %s\n", project.UpdatedAt)
+	resultText += fmt.Sprintf("**用户数量:** %d\n", len(project.UserIds))
+
+	if len(project.UserIds) > 0 {
+		resultText += fmt.Sprintf("**用户IDs:** `%s`\n", strings.Join(project.UserIds, "`, `"))
+	}
+
+	if len(project.Metadata) > 0 {
+		resultText += "\n**项目元数据:**\n"
+		for key, value := range project.Metadata {
+			resultText += fmt.Sprintf("- %s: %s\n", key, value)
+		}
+	}
+
+	resultText += "\n\n---\n\n"
+	resultText += "**项目操作提示：**\n"
+	resultText += "- 使用 `list_api_documents` 查看API文档\n"
+	resultText += "- 使用 `list_text_documents` 查看文本文档"
+
+	return &mcp.CallToolResult{
+			Content: []mcp.Content{
+				&mcp.TextContent{Text: resultText},
+			},
+		}, struct {
+			Success bool           `json:"success"`
+			Project *types.Project `json:"project"`
+			Message string         `json:"message"`
+		}{Success: true, Project: project, Message: "获取项目信息成功"}, nil
+}
+
 // GetProjectInfo 获取项目信息处理器
 func GetProjectInfo(_ context.Context, req *mcp.CallToolRequest, input struct {
 	ProjectID string `json:"project_id,omitempty" jsonschema:"项目ID，可选。要查询的项目标识符，如果不提供则使用Token中的当前项目。当用户说'查询当前项目'、'查看项目信息'时可不传，系统会自动使用当前项目。传参时必须是有效的项目ID。"`
