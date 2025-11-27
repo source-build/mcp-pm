@@ -219,7 +219,7 @@ func EditAPIDocument(_ context.Context, req *mcp.CallToolRequest, input struct {
 			}{Success: false, Message: fmt.Sprintf("获取用户ID失败: %v", err)}, err
 	}
 
-	projectID, err := es.ESClient.GetDocumentProjectID(input.ID)
+	projectID, err := es.ESClient.GetDocumentProjectID(id)
 	if err != nil {
 		return &mcp.CallToolResult{
 				Content: []mcp.Content{
@@ -256,8 +256,18 @@ func EditAPIDocument(_ context.Context, req *mcp.CallToolRequest, input struct {
 			}{Success: false, Message: fmt.Sprintf("用户不在项目中: %v", userId)}, err
 	}
 
+	var isUpdated bool
+	// 检查是否有字段被更新
+	if input.Method != "" || input.Path != "" || input.Header != nil || input.Query != nil || input.PathParams != nil || input.ResponseBizCode != "" || input.Body != nil {
+		isUpdated = true
+	}
+
 	doc := map[string]interface{}{
-		"api_content": types.APIDocumentContent{
+		"updated_at": time.Now(),
+	}
+
+	if isUpdated {
+		apiDoc := types.APIDocumentContent{
 			Method:          input.Method,
 			Path:            input.Path,
 			Header:          input.Header,
@@ -265,9 +275,34 @@ func EditAPIDocument(_ context.Context, req *mcp.CallToolRequest, input struct {
 			PathParams:      input.PathParams,
 			ResponseBizCode: input.ResponseBizCode,
 			Body:            input.Body,
-		},
-		"updated_at": time.Now(),
+		}
+		if input.Method != "" {
+			apiDoc.Method = input.Method
+		}
+		if input.Path != "" {
+			apiDoc.Path = input.Path
+		}
+		if input.Header != nil {
+			apiDoc.Header = input.Header
+		}
+		if input.Query != nil {
+			apiDoc.Query = input.Query
+		}
+		if input.PathParams != nil {
+			apiDoc.PathParams = input.PathParams
+		}
+		if input.ResponseBizCode != "" {
+			apiDoc.ResponseBizCode = input.ResponseBizCode
+		}
+		if input.Body != nil {
+			apiDoc.Body = input.Body
+		}
+
+		doc["api_content"] = apiDoc
 	}
+
+	// 保证起码至少有一项字段被更新了才更新api_content
+
 	if input.Name != "" {
 		doc["name"] = input.Name
 	}
@@ -735,7 +770,7 @@ func ListAPIDocuments(_ context.Context, req *mcp.CallToolRequest, input struct 
 	// 执行列表
 	apiType := types.DocumentTypeAPI
 	docType := &apiType
-	result, err := es.ESClient.ListDocuments(input.ProjectID, docType, limit, offset)
+	result, err := es.ESClient.ListDocuments(projectID, docType, limit, offset)
 	if err != nil {
 		return &mcp.CallToolResult{
 				Content: []mcp.Content{

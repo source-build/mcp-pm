@@ -42,8 +42,8 @@ type Document struct {
 
 // APIDocumentContent API文档内容
 type APIDocumentContent struct {
-	Method          string                 `json:"method" jsonschema:"HTTP方法，必填。API的请求方法。必须是标准HTTP方法：GET(查询)、POST(创建)、PUT(更新)、DELETE(删除)、PATCH(部分更新)、HEAD、OPTIONS、TRACE。请根据API的实际功能选择。"`
-	Path            string                 `json:"path" jsonschema:"API路径，必填。API的访问路径，如：'/api/users/{id}'、'/api/orders'。支持路径参数，使用'{paramName}'格式。必须以'/'开头，避免使用特殊字符。"`
+	Method          string                 `json:"method,omitempty" jsonschema:"HTTP方法，必填。API的请求方法。必须是标准HTTP方法：GET(查询)、POST(创建)、PUT(更新)、DELETE(删除)、PATCH(部分更新)、HEAD、OPTIONS、TRACE。请根据API的实际功能选择。"`
+	Path            string                 `json:"path,omitempty" jsonschema:"API路径，必填。API的访问路径，如：'/api/users/{id}'、'/api/orders'。支持路径参数，使用'{paramName}'格式。必须以'/'开头，避免使用特殊字符。"`
 	Body            map[string]interface{} `json:"body,omitempty" jsonschema:"请求体，可选。POST/PUT请求的JSON数据，如：{'name': '张三', 'age': 25}。GET/DELETE请求通常不需要。请提供完整的请求体结构和字段说明。"`
 	Query           map[string]interface{} `json:"query,omitempty" jsonschema:"查询参数，可选。URL查询参数，如：{'page': 1, 'size': 10}。用于GET请求的参数传递，格式为键值对。"`
 	PathParams      map[string]interface{} `json:"path_params,omitempty" jsonschema:"路径参数，可选。URL路径中的参数，如：{'id': 123}。对应路径中的'{paramName}'占位符，用于动态路径构建。"`
